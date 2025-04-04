@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create and Manage Courses</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .chapter-container {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .module-container {
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        .remove-chapter-btn, .remove-module-btn {
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg bg-body-tertiary fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">Teacher Portal</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="{{ url_for('create_course') }}">Create Course</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Account
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#">Profile</a></li>
+                            <li><a class="dropdown-item" href="#">Settings</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <form class="d-flex" role="search">
+                    <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
+                    <button class="btn btn-outline-success" type="submit">Search</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h1 class="mt-4">Create and Manage Courses</h1>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="alert alert-info" role="alert">
+                    {% for message in messages %}
+                        {{ message }}<br>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        <form method="POST" id="course-form">
+            <div class="mb-3">
+                <label for="subject_option" class="form-label">Choose Subject:</label>
+                <select class="form-select" id="subject_option" name="subject_option">
+                    <option value="new">Create New Subject</option>
+                    {% for subject in subjects %}
+                        <option value="{{ subject.subject_id }}">Existing: {{ subject.subject_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3" id="new_subject_name_container" style="display: none;">
+                <label for="new_subject_name" class="form-label">New Subject Name:</label>
+                <input type="text" class="form-control" id="new_subject_name" name="new_subject_name">
+            </div>
+
+            <div id="chapters-container">
+                </div>
+
+            <button type="button" class="btn btn-success mt-3" onclick="addChapter()">Add Chapter</button>
+            <button type="submit" class="btn btn-primary mt-3">Save Course Structure</button>
+        </form>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+    </div>
+
+    <template id="chapter-template">
+        <div class="chapter-container">
+            <h4>Chapter Name: <input type="text" class="form-control" name="chapter_name[]" required></h4>
+            <div class="modules-container">
+                </div>
+            <button type="button" class="btn btn-info btn-sm" onclick="addModule(this)">Add Module</button>
+            <button type="button" class="btn btn-danger btn-sm remove-chapter-btn" onclick="removeChapter(this)">Remove Chapter</button>
+        </div>
+    </template>
+
+    <template id="module-template">
+        <div class="module-container">
+            Module Name: <input type="text" class="form-control form-control-sm" name="module_name[][]" required>
+            Video URL (Optional): <input type="url" class="form-control form-control-sm" name="video_url[][]">
+            <button type="button" class="btn btn-danger btn-sm remove-module-btn" onclick="removeModule(this)">Remove Module</button>
+        </div>
+    </template>
+
+    <script>
+        const chaptersContainer = document.getElementById('chapters-container');
+        const chapterTemplate = document.getElementById('chapter-template').content.cloneNode(true);
+        const moduleTemplate = document.getElementById('module-template').content.cloneNode(true);
+        const subjectOption = document.getElementById('subject_option');
+        const newSubjectNameContainer = document.getElementById('new_subject_name_container');
+        const newSubjectNameInput = document.getElementById('new_subject_name');
+
+        subjectOption.addEventListener('change', function() {
+            newSubjectNameContainer.style.display = this.value === 'new' ? 'block' : 'none';
+            if (this.value !== 'new') {
+                newSubjectNameInput.removeAttribute('required');
+            } else {
+                newSubjectNameInput.setAttribute('required', 'required');
+            }
+        });
+
+        function addChapter() {
+            const newChapter = chapterTemplate.cloneNode(true);
+            chaptersContainer.appendChild(newChapter);
+        }
+
+        function removeChapter(btn) {
+            btn.parentNode.remove();
+        }
+
+        function addModule(btn) {
+            const newModule = moduleTemplate.cloneNode(true);
+            btn.previousElementSibling.appendChild(newModule);
+        }
+
+        function removeModule(btn) {
+            btn.parentNode.remove();
+        }
+    </script>
+</body>
+</html>

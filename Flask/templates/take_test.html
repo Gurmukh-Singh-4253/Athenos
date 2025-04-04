@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Subject Portal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+</head>
+<body>
+    <h1>Subject Portal</h1>
+    {% for module in modules %}
+        <div>
+            <h2>{{ module.module_name }}</h2>
+            <p>Difficulty: {{ module.difficulty }}</p>
+            <p>Completed: {{ 'Yes' if module.completed else 'No' }}</p>
+            <p>Mastery: {{ 'Yes' if module.mastery else 'No' }}</p>
+            <a href="{{ module.video_url }}">Watch Lecture</a>
+            <a href="{{ url_for('take_test', module_id=Module.query.filter_by(module_name=module.module_name).first().module_id) }}">Take Test</a>
+        </div>
+    {% endfor %}
+</body>
+</html>
