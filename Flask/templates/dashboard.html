@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to Your Dashboard</h1>
+
+        {% if user %}
+            <p>You are logged in as: <strong>{{ user.email }}</strong></p>
+            <p>User Type: <strong>{{ user.userType }}</strong></p>
+        {% endif %}
+
+        <!-- Dashboard content goes here -->
+        <div class="dashboard-content">
+            <h2>Your Account</h2>
+            <p>This is your secure dashboard area. Only authenticated users can see this page.</p>
+
+            <!-- Add more dashboard content here based on user type -->
+            {% if user and user.userType == 'teacher' %}
+                <div class="teacher-panel">
+                    <h3>Teacher Features</h3>
+                    <ul>
+                        <li>Create and manage courses</li>
+                        <li>Add assignments</li>
+                        <li>Review student work</li>
+                    </ul>
+                </div>
+            {% endif %}
+
+            {% if user and user.userType == 'student' %}
+                <div class="student-panel">
+                    <h3>Student Features</h3>
+                    <ul>
+                        <li>View enrolled courses</li>
+                        <li>Submit assignments</li>
+                        <li>Track progress</li>
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="logout-section">
+            <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -2,7 +2,10 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
-from datetime import datetime
+from flask_mail import Mail, Message
+from datetime import datetime, timedelta
+import random
+import string
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
@@ -11,6 +14,28 @@ db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'vansh27102005@gmail.com'
+app.config['MAIL_PASSWORD'] = 'dtma rcoj byyx rruo'
+app.config['MAIL_DEFAULT_SENDER'] = 'vansh27102005@gmail.com'
+mail = Mail(app)
+
+# In-memory database (replace with a real database in production)
+users = []
+otp_store = {}
+pending_registrations = {}
+
+# Helper function to generate OTP
+def generate_otp():
+    return ''.join(random.choices(string.digits, k=4))
+
+
+# Helper function to generate reset token
+def generate_reset_token():
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=32))
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -70,40 +95,207 @@ def load_user(username):
 
 @app.route('/')
 def index():
-    return render_template("index.html")
+    return render_template("startup.html")
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
     if request.method == 'POST':
-        username = request.form.get('username')
+        email = request.form.get('email')
         password = request.form.get('password')
-        user = User.query.get(username)
-        if user and bcrypt.check_password_hash(user.password, password):
-            login_user(user)
-            return redirect(url_for('dashboard'))
-        flash('Invalid username or password')
+
+        # Find user
+        user = next((user for user in users if user['email'] == email), None)
+        if not user:
+            flash('Invalid credentials', 'error')
+            return redirect(url_for('login'))
+
+        # Check password
+        if not bcrypt.check_password_hash(user['password'], password):
+            flash('Invalid credentials', 'error')
+            return redirect(url_for('login'))
+
+        # Authentication successful - create session
+        session['user'] = {
+            'email': user['email'],
+            'user_type': user['user_type']
+        }
+
+        # Redirect to dashboard
+        return redirect(url_for('dashboard'))
+
     return render_template('login.html')
 
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+@app.route('/register', methods=['GET', 'POST'])
+def register():
     if request.method == 'POST':
-        username = request.form.get('username')
+        email = request.form.get('email')
         password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
         user_type = request.form.get('user_type')
-        if User.query.get(username):
-            flash('Username already exists')
-            return redirect(url_for('signup'))
+
+        # Validate form data
+        if password != confirm_password:
+            flash('Passwords do not match', 'error')
+            return redirect(url_for('register'))
+
+        # Check if user already exists
+        if any(user['email'] == email for user in users):
+            flash('User already exists', 'error')
+            return redirect(url_for('register'))
+
+        # Hash password
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-        new_user = User(username=username, password=hashed_password, user_type=user_type)
-        db.session.add(new_user)
-        db.session.commit()
-        login_user(new_user)
+
+        # Store pending registration
+        pending_registrations[email] = {
+            'email': email,
+            'password': hashed_password,
+            'user_type': user_type
+        }
+
+        # Generate OTP
+        otp = generate_otp()
+
+        # Store OTP with expiry (5 minutes)
+        otp_store[email] = {
+            'otp': otp,
+            'expiry': datetime.now() + timedelta(minutes=5)
+        }
+
+        # Send OTP via email
+        try:
+            msg = Message('Your Registration Verification Code',
+                          recipients=[email])
+            msg.html = f'''
+                <h1>Registration Verification Code</h1>
+                <p>Your 4-digit verification code is: <strong>{otp}</strong></p>
+                <p>This code will expire in 5 minutes.</p>
+            '''
+            mail.send(msg)
+
+            # Save email in session for next step
+            session['pending_registration'] = {'email': email}
+
+            # Redirect to verification page
+            return redirect(url_for('verify_otp'))
+        except Exception as e:
+            print(e)
+            flash('Failed to send verification email', 'error')
+            return redirect(url_for('register'))
+
+    return render_template('register.html')
+
+@app.route('/verify-otp', methods=['GET', 'POST'])
+def verify_otp():
+    if 'pending_registration' not in session:
+        flash('No pending registration', 'error')
+        return redirect(url_for('register'))
+
+    email = session['pending_registration']['email']
+
+    if request.method == 'POST':
+        otp = request.form.get('otp')
+
+        stored_otp = otp_store.get(email)
+
+        # Check if OTP exists and is valid
+        if not stored_otp or stored_otp['otp'] != otp:
+            flash('Invalid verification code', 'error')
+            return redirect(url_for('verify_otp'))
+
+        # Check if OTP has expired
+        if stored_otp['expiry'] < datetime.now():
+            del otp_store[email]
+            flash('Verification code has expired', 'error')
+            return redirect(url_for('register'))
+
+        # Registration successful - add user from pending registrations
+        new_user = pending_registrations[email]
+        users.append(new_user)
+
+        # Clean up
+        del pending_registrations[email]
+        del otp_store[email]
+        session.pop('pending_registration', None)
+
+        flash('Registration successful! Please login.', 'success')
         return redirect(url_for('login'))
-    return render_template('signup.html')
+
+    return render_template('verify_otp.html', email=email)
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+
+        # Check if user exists
+        user = next((user for user in users if user['email'] == email), None)
+        if not user:
+            # Don't reveal if user exists for security reasons
+            flash('If your email is registered, you will receive a password reset link', 'success')
+            return redirect(url_for('login'))
+
+        # Generate reset token
+        reset_token = generate_reset_token()
+        reset_expiry = datetime.now() + timedelta(hours=1)
+
+        # In a real app, store this token in the database
+        # Here we're just demonstrating the flow
+
+        # Send password reset email
+        try:
+            reset_link = url_for('reset_password', token=reset_token, email=email, _external=True)
+            msg = Message('Password Reset Link',
+                          recipients=[email])
+            msg.html = f'''
+                <h1>Password Reset Request</h1>
+                <p>Click the link below to reset your password:</p>
+                <p><a href="{"http://127.0.0.1:5000/register"}">Reset Password</a></p>
+                <p>This link will expire in 1 hour.</p>
+            '''
+            mail.send(msg)
+
+            flash('Password reset link sent to your email', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            print(e)
+            flash('Failed to send reset email', 'error')
+            return redirect(url_for('forgot_password'))
+
+    return render_template('forgot_password.html')
+
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    email = request.args.get('email')
+    token = request.args.get('token')
+
+    if not email or not token:
+        flash('Invalid password reset link', 'error')
+        return redirect(url_for('login'))
+
+    # In a real app, validate the token from database
+    # For demo purposes, we'll just show the reset form
+
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        if password != confirm_password:
+            flash('Passwords do not match', 'error')
+            return redirect(url_for('reset_password', token=token, email=email))
+
+        # Find the user
+        user = next((user for user in users if user['email'] == email), None)
+        if user:
+            # Update password
+            user['password'] = bcrypt.generate_password_hash(password).decode('utf-8')
+            flash('Password has been reset successfully', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash('User not found', 'error')
+            return redirect(url_for('login'))
+
+    return render_template('reset_password.html', email=email, token=token)
 
 @app.route('/dashboard')
 @login_required
@@ -300,6 +492,16 @@ def take_test(module_id):
 def logout():
     logout_user()  # If you're using Flask-Login
     return redirect(url_for('login'))
+
+# Context processor to make URL generation helper available to all templates
+@app.context_processor
+def utility_processor():
+    def url_for_static(route):
+        return url_for('static', filename=route)
+
+    return {
+        'url_for_static': url_for_static
+    }
 
 if __name__ == '__main__':
     with app.app_context():

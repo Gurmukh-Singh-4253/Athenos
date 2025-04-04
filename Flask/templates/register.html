@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sign Up</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .strength {
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .weak {
+            color: red;
+        }
+        .medium {
+            color: orange;
+        }
+        .strong {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sign Up</h1>
+
+        {% with errors = get_flashed_messages(category_filter=['error']) %}
+            {% if errors %}
+                {% for message in errors %}
+                    <p class="error-message">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% with successes = get_flashed_messages(category_filter=['success']) %}
+            {% if successes %}
+                {% for message in successes %}
+                    <p class="success-message">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <div class="form-group">
+                <input type="email" name="email" placeholder="Email" required>
+            </div>
+
+            <div class="form-group">
+                <input type="password" id="password" name="password" placeholder="Password" required>
+            </div>
+
+            <div class="form-group">
+                <input type="password" id="confirm" name="confirm_password" placeholder="Confirm Password" required>
+            </div>
+
+            <div class="form-group">
+                <button type="button" onclick="suggestPassword()">Suggest Password</button>
+            </div>
+
+            <div id="strengthText" class="strength"></div>
+
+            <div class="form-group">
+                <select name="user_type" required>
+                    <option value="" disabled selected>Select user type</option>
+                    <option value="student">Student</option>
+                    <option value="teacher">Teacher</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">Sign Up</button>
+            </div>
+        </form>
+
+        <p>Already have an account? <a href="{{ url_for('login') }}" style="text-decoration: none; color: #007BFF;">Login</a></p>
+        <p><a href="{{ url_for('index') }}" style="text-decoration: none; color: #007BFF;">← Back to Home</a></p>
+
+        <script>
+            const passwordField = document.getElementById('password');
+            const confirmField = document.getElementById('confirm');
+            const strengthText = document.getElementById('strengthText');
+
+            // Toggle Show/Hide Password Button
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.innerText = 'Show Password';
+            toggleBtn.style.marginTop = '10px';
+            toggleBtn.onclick = function () {
+                const type = passwordField.type === 'password' ? 'text' : 'password';
+                passwordField.type = type;
+                confirmField.type = type;
+                toggleBtn.innerText = type === 'password' ? 'Show Password' : 'Hide Password';
+            };
+            confirmField.parentNode.insertBefore(toggleBtn, confirmField.nextSibling);
+
+            // Password Strength Checker
+            passwordField.addEventListener('input', () => {
+                checkStrength(passwordField.value);
+            });
+
+            function checkStrength(password) {
+                let strength = 0;
+                if (password.length >= 8) strength++;
+                if (/[A-Z]/.test(password)) strength++;
+                if (/[0-9]/.test(password)) strength++;
+                if (/[\W_]/.test(password)) strength++;
+
+                if (strength <= 1) {
+                    strengthText.textContent = 'Weak';
+                    strengthText.className = 'strength weak';
+                } else if (strength === 2 || strength === 3) {
+                    strengthText.textContent = 'Medium';
+                    strengthText.className = 'strength medium';
+                } else {
+                    strengthText.textContent = 'Strong';
+                    strengthText.className = 'strength strong';
+                }
+            }
+
+            // Password Suggestion Generator
+            function suggestPassword() {
+                const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~";
+                let password = "";
+                for (let i = 0; i < 12; i++) {
+                    password += charset[Math.floor(Math.random() * charset.length)];
+                }
+                passwordField.value = password;
+                confirmField.value = password;
+                checkStrength(password);
+            }
+        </script>
+    </div>
+</body>
+</html>

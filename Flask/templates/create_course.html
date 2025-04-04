@@ -2,150 +2,163 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Create and Manage Courses</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Course</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        .chapter-container {
-            margin-top: 20px;
-            border: 1px solid #ccc;
-            padding: 15px;
-            border-radius: 5px;
-        }
-        .module-container {
-            margin-top: 10px;
-            border: 1px solid #ddd;
-            padding: 10px;
-            border-radius: 3px;
-        }
-        .remove-chapter-btn, .remove-module-btn {
-            margin-top: 5px;
-        }
-    </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg bg-body-tertiary fixed-top">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('dashboard') }}">Teacher Portal</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">Athenos</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link active" aria-current="page" href="{{ url_for('create_course') }}">Create Course</a>
                     </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            Account
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#">Profile</a></li>
-                            <li><a class="dropdown-item" href="#">Settings</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
-                        </ul>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Manage Courses</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
                     </li>
                 </ul>
-                <form class="d-flex" role="search">
-                    <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
-                    <button class="btn btn-outline-success" type="submit">Search</button>
-                </form>
             </div>
         </div>
     </nav>
 
     <div class="container mt-5">
-        <h1 class="mt-4">Create and Manage Courses</h1>
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <div class="alert alert-info" role="alert">
-                    {% for message in messages %}
-                        {{ message }}<br>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
-        <form method="POST" id="course-form">
+        <h1>Create New Course</h1>
+        <form method="POST">
             <div class="mb-3">
-                <label for="subject_option" class="form-label">Choose Subject:</label>
-                <select class="form-select" id="subject_option" name="subject_option">
-                    <option value="new">Create New Subject</option>
-                    {% for subject in subjects %}
-                        <option value="{{ subject.subject_id }}">Existing: {{ subject.subject_name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="mb-3" id="new_subject_name_container" style="display: none;">
-                <label for="new_subject_name" class="form-label">New Subject Name:</label>
-                <input type="text" class="form-control" id="new_subject_name" name="new_subject_name">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="subject_option" id="existingSubject" value="existing">
+                    <label class="form-check-label" for="existingSubject">
+                        Add to Existing Subject
+                    </label>
+                    <select class="form-select mt-2" name="subject_option" aria-label="Select existing subject">
+                        <option value="">Select an existing subject</option>
+                        {% for subject in subjects %}
+                            <option value="{{ subject.subject_id }}">{{ subject.subject_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="subject_option" id="newSubject" value="new" checked>
+                    <label class="form-check-label" for="newSubject">
+                        Create New Subject
+                    </label>
+                    <input type="text" class="form-control mt-2" name="new_subject_name" placeholder="Enter new subject name" autofocus>
+                </div>
             </div>
 
             <div id="chapters-container">
                 </div>
 
-            <button type="button" class="btn btn-success mt-3" onclick="addChapter()">Add Chapter</button>
-            <button type="submit" class="btn btn-primary mt-3">Save Course Structure</button>
+            <button type="button" class="btn btn-info mb-3" onclick="addChapter()">Add Chapter</button>
+            <button type="submit" class="btn btn-primary">Save Course Structure</button>
         </form>
-        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
     </div>
 
-    <template id="chapter-template">
-        <div class="chapter-container">
-            <h4>Chapter Name: <input type="text" class="form-control" name="chapter_name[]" required></h4>
-            <div class="modules-container">
-                </div>
-            <button type="button" class="btn btn-info btn-sm" onclick="addModule(this)">Add Module</button>
-            <button type="button" class="btn btn-danger btn-sm remove-chapter-btn" onclick="removeChapter(this)">Remove Chapter</button>
-        </div>
-    </template>
-
-    <template id="module-template">
-        <div class="module-container">
-            Module Name: <input type="text" class="form-control form-control-sm" name="module_name[][]" required>
-            Video URL (Optional): <input type="url" class="form-control form-control-sm" name="video_url[][]">
-            <button type="button" class="btn btn-danger btn-sm remove-module-btn" onclick="removeModule(this)">Remove Module</button>
-        </div>
-    </template>
-
     <script>
-        const chaptersContainer = document.getElementById('chapters-container');
-        const chapterTemplate = document.getElementById('chapter-template').content.cloneNode(true);
-        const moduleTemplate = document.getElementById('module-template').content.cloneNode(true);
-        const subjectOption = document.getElementById('subject_option');
-        const newSubjectNameContainer = document.getElementById('new_subject_name_container');
-        const newSubjectNameInput = document.getElementById('new_subject_name');
-
-        subjectOption.addEventListener('change', function() {
-            newSubjectNameContainer.style.display = this.value === 'new' ? 'block' : 'none';
-            if (this.value !== 'new') {
-                newSubjectNameInput.removeAttribute('required');
-            } else {
-                newSubjectNameInput.setAttribute('required', 'required');
-            }
-        });
+        let chapterCount = 0;
 
         function addChapter() {
-            const newChapter = chapterTemplate.cloneNode(true);
-            chaptersContainer.appendChild(newChapter);
+            chapterCount++;
+            const chaptersContainer = document.getElementById('chapters-container');
+            const chapterDiv = document.createElement('div');
+            chapterDiv.classList.add('mb-3', 'border', 'p-2');
+            chapterDiv.innerHTML = `
+                <h4>Chapter ${chapterCount}</h4>
+                <button type="button" class="btn btn-sm btn-danger float-end" onclick="removeChapter(this)">Remove Chapter</button>
+                <div class="mb-2">
+                    <label for="chapter_name_${chapterCount}" class="form-label">Chapter Name:</label>
+                    <input type="text" class="form-control" id="chapter_name_${chapterCount}" name="chapter_name[]" required>
+                </div>
+                <div id="modules-container-${chapterCount}">
+                    <h5>Modules</h5>
+                    </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="addModule(${chapterCount})">Add Module</button>
+            `;
+            chaptersContainer.appendChild(chapterDiv);
+            addModule(chapterCount); // Add at least one module when a chapter is created
         }
 
-        function removeChapter(btn) {
-            btn.parentNode.remove();
+        function removeChapter(button) {
+            const chapterDiv = button.parentNode;
+            chapterDiv.remove();
+            // Re-index chapter headings if needed for display
+            updateChapterHeadings();
         }
 
-        function addModule(btn) {
-            const newModule = moduleTemplate.cloneNode(true);
-            btn.previousElementSibling.appendChild(newModule);
+        function updateChapterHeadings() {
+            const chapterHeadings = document.querySelectorAll('#chapters-container > div > h4');
+            chapterHeadings.forEach((heading, index) => {
+                heading.textContent = `Chapter ${index + 1}`;
+            });
         }
 
-        function removeModule(btn) {
-            btn.parentNode.remove();
+        let moduleCounts = {};
+        function addModule(chapterIndex) {
+            if (!moduleCounts[chapterIndex]) {
+                moduleCounts[chapterIndex] = 0;
+            }
+            moduleCounts[chapterIndex]++;
+            const modulesContainer = document.getElementById(`modules-container-${chapterIndex}`);
+            const moduleDiv = document.createElement('div');
+            moduleDiv.classList.add('mb-2', 'border-bottom', 'pb-2', 'd-flex', 'justify-content-between', 'align-items-center');
+            moduleDiv.innerHTML = `
+                <div>
+                    <div class="mb-1">
+                        <label for="module_name_${chapterIndex}_${moduleCounts[chapterIndex]}" class="form-label">Module Name:</label>
+                        <input type="text" class="form-control form-control-sm" id="module_name_${chapterIndex}_${moduleCounts[chapterIndex]}" name="module_name[${chapterIndex - 1}][]" required>
+                    </div>
+                    <div>
+                        <label for="video_url_${chapterIndex}_${moduleCounts[chapterIndex]}" class="form-label">Video URL (Optional):</label>
+                        <input type="url" class="form-control form-control-sm" id="video_url_${chapterIndex}_${moduleCounts[chapterIndex]}" name="video_url[${chapterIndex - 1}][]">
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-danger" onclick="removeModule(this)">Remove</button>
+            `;
+            modulesContainer.appendChild(moduleDiv);
         }
+
+        function removeModule(button) {
+            const moduleDiv = button.parentNode;
+            moduleDiv.remove();
+        }
+
+        // Initialize with one chapter
+        addChapter();
+
+        // Initially hide the existing subject dropdown
+        const existingSubjectSelect = document.querySelector('select[name="subject_option"]');
+        if (existingSubjectSelect) {
+            existingSubjectSelect.style.display = 'none';
+        }
+
+        // JavaScript to toggle visibility of the select based on the radio button
+        document.addEventListener('change', function(event) {
+            if (event.target.name === 'subject_option') {
+                const newSubjectInput = document.querySelector('input[name="new_subject_name"]');
+                const existingSubjectSelect = document.querySelector('select[name="subject_option"]');
+                if (document.getElementById('newSubject').checked) {
+                    newSubjectInput.style.display = 'block';
+                    existingSubjectSelect.style.display = 'none';
+                    newSubjectInput.focus(); // Set focus to the new subject input
+                } else if (document.getElementById('existingSubject').checked) {
+                    newSubjectInput.style.display = 'none';
+                    existingSubjectSelect.style.display = 'block';
+                    existingSubjectSelect.focus(); // Set focus to the existing subject select
+                }
+            }
+        });
     </script>
 </body>
 </html>
