@@ -366,9 +366,10 @@ def create_course():
 
     if request.method == 'POST':
         subject_option = request.form.get('subject_option')
-        print(f"Subject Option Received: '{subject_option}'") # Debug print
+        print(f"Subject Option Received: '{subject_option}'")
         subject = None
 
+        # Handle subject selection/creation (this part seems fine)
         if subject_option and subject_option != 'new':
             try:
                 subject_id = int(subject_option)
@@ -387,7 +388,7 @@ def create_course():
                     return render_template('create_course.html', subjects=subjects)
                 subject = Subject(subject_name=new_subject_name)
                 db.session.add(subject)
-                db.session.commit()
+                db.session.commit()  # Commit here to get subject_id
                 flash(f'Subject "{new_subject_name}" created successfully.')
             else:
                 flash('Please enter a name for the new subject.')
@@ -396,26 +397,46 @@ def create_course():
             flash('Please select an existing subject or create a new one.')
             return render_template('create_course.html', subjects=subjects)
 
-        if subject:
-            chapter_names = request.form.getlist('chapter_name[]')
-            module_names_list = request.form.getlist('module_name[][]')
-            video_urls_list = request.form.getlist('video_url[][]')
+        print(f"Selected/Created Subject: {subject.subject_name} (ID: {subject.subject_id})")
 
-            for i, chapter_name in enumerate(chapter_names):
-                if chapter_name:
+        if subject:
+            # Extract form data - print all form data for debugging
+            print("Form data keys:", request.form.keys())
+            
+            # Process chapters
+            for key in request.form.keys():
+                if key.startswith('chapter_name[') and request.form[key]:
+                    chapter_index = key.split('[')[1].split(']')[0]
+                    chapter_name = request.form[key]
+                    print(f"Processing Chapter {chapter_index}: {chapter_name}")
+                    
+                    # Create chapter
                     chapter = Chapter(subject_id=subject.subject_id, chapter_name=chapter_name)
                     db.session.add(chapter)
-                    db.session.commit()
-
-                    if i < len(module_names_list):
-                        module_names = module_names_list[i]
-                        video_urls = video_urls_list[i] if i < len(video_urls_list) else []
-
-                        for j, module_name in enumerate(module_names):
-                            if module_name:
-                                video_url = video_urls[j] if j < len(video_urls) else None
-                                module = Module(chapter_id=chapter.chapter_id, module_name=module_name, video_url=video_url)
-                                db.session.add(module)
+                    db.session.commit()  # Commit to get chapter_id
+                    print(f"Created chapter with ID: {chapter.chapter_id}")
+                    
+                    # Process modules for this chapter
+                    module_count = 0
+                    while True:
+                        module_key = f"module_name[{chapter_index}][{module_count}]"
+                        video_key = f"video_url[{chapter_index}][{module_count}]"
+                        
+                        if module_key not in request.form or not request.form[module_key]:
+                            break
+                            
+                        module_name = request.form[module_key]
+                        video_url = request.form.get(video_key, '')
+                        
+                        print(f"  Adding Module: {module_name} with URL: {video_url}")
+                        module = Module(
+                            chapter_id=chapter.chapter_id,
+                            module_name=module_name,
+                            video_url=video_url
+                        )
+                        db.session.add(module)
+                        module_count += 1
+            
             db.session.commit()
             flash('Course structure saved successfully.')
             return redirect(url_for('dashboard'))
@@ -494,7 +515,6 @@ def utility_processor():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        # Sample data
         if not Subject.query.first():
             subjects = ['Mathematics', 'Science']
             for s in subjects:

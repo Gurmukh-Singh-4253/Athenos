@@ -38,11 +38,11 @@
         <form method="POST">
             <div class="mb-3">
                 <div class="form-check">
-                    <input class="form-check-input" type="radio" name="subject_option" id="existingSubject" value="existing">
-                    <label class="form-check-label" for="existingSubject">
+                    <input class="form-check-input" type="radio" name="subject_option_radio" id="existingSubjectRadio" value="existing">
+                    <label class="form-check-label" for="existingSubjectRadio">
                         Add to Existing Subject
                     </label>
-                    <select class="form-select mt-2" name="subject_option" aria-label="Select existing subject">
+                    <select class="form-select mt-2" name="existing_subject_id" id="existingSubjectSelect" aria-label="Select existing subject" style="display: none;">
                         <option value="">Select an existing subject</option>
                         {% for subject in subjects %}
                             <option value="{{ subject.subject_id }}">{{ subject.subject_name }}</option>
@@ -50,11 +50,11 @@
                     </select>
                 </div>
                 <div class="form-check">
-                    <input class="form-check-input" type="radio" name="subject_option" id="newSubject" value="new" checked>
-                    <label class="form-check-label" for="newSubject">
+                    <input class="form-check-input" type="radio" name="subject_option_radio" id="newSubjectRadio" value="new" checked>
+                    <label class="form-check-label" for="newSubjectRadio">
                         Create New Subject
                     </label>
-                    <input type="text" class="form-control mt-2" name="new_subject_name" placeholder="Enter new subject name" autofocus>
+                    <input type="text" class="form-control mt-2" name="new_subject_name" id="newSubjectInput" placeholder="Enter new subject name" autofocus>
                 </div>
             </div>
 
@@ -73,7 +73,8 @@
             chapterCount++;
             const chaptersContainer = document.getElementById('chapters-container');
             const chapterDiv = document.createElement('div');
-            chapterDiv.classList.add('mb-3', 'border', 'p-2');
+            chapterDiv.classList.add('mb-3', 'border', 'p-2', 'chapter-item');
+            chapterDiv.dataset.chapterIndex = chapterCount; // Store chapter index
             chapterDiv.innerHTML = `
                 <h4>Chapter ${chapterCount}</h4>
                 <button type="button" class="btn btn-sm btn-danger float-end" onclick="removeChapter(this)">Remove Chapter</button>
@@ -93,16 +94,33 @@
         function removeChapter(button) {
             const chapterDiv = button.parentNode;
             chapterDiv.remove();
-            // Re-index chapter headings if needed for display
             updateChapterHeadings();
         }
 
         function updateChapterHeadings() {
-            const chapterHeadings = document.querySelectorAll('#chapters-container > div > h4');
+            const chapterHeadings = document.querySelectorAll('#chapters-container > .chapter-item > h4');
             chapterHeadings.forEach((heading, index) => {
                 heading.textContent = `Chapter ${index + 1}`;
+                heading.parentNode.dataset.chapterIndex = index + 1; // Update stored index
+            });
+            // Need to re-index module containers as well if relying on chapterCount in their IDs
+            reIndexModuleContainers();
+        }
+
+        function reIndexModuleContainers() {
+            const chapterItems = document.querySelectorAll('#chapters-container > .chapter-item');
+            chapterItems.forEach((chapterDiv, index) => {
+                const oldId = chapterDiv.querySelector('[id^="modules-container-"]').id;
+                const newChapterIndex = index + 1;
+                const newId = `modules-container-${newChapterIndex}`;
+                chapterDiv.querySelector('[id^="modules-container-"]').id = newId;
+                // Update the onclick for the "Add Module" button
+                const addButton = chapterDiv.querySelector('button[onclick^="addModule"]');
+                addButton.onclick = function() { addModule(newChapterIndex); };
+                // You might need to update IDs and names of existing module inputs as well if they rely on chapter index
             });
         }
+
 
         let moduleCounts = {};
         function addModule(chapterIndex) {
@@ -110,18 +128,19 @@
                 moduleCounts[chapterIndex] = 0;
             }
             moduleCounts[chapterIndex]++;
-            const modulesContainer = document.getElementById(`modules-container-${chapterIndex}`);
+            const modulesContainerId = `modules-container-${chapterIndex}`;
+            const modulesContainer = document.getElementById(modulesContainerId);
             const moduleDiv = document.createElement('div');
-            moduleDiv.classList.add('mb-2', 'border-bottom', 'pb-2', 'd-flex', 'justify-content-between', 'align-items-center');
+            moduleDiv.classList.add('mb-2', 'border-bottom', 'pb-2', 'd-flex', 'justify-content-between', 'align-items-center', 'module-item');
             moduleDiv.innerHTML = `
                 <div>
                     <div class="mb-1">
                         <label for="module_name_${chapterIndex}_${moduleCounts[chapterIndex]}" class="form-label">Module Name:</label>
-                        <input type="text" class="form-control form-control-sm" id="module_name_${chapterIndex}_${moduleCounts[chapterIndex]}" name="module_name[${chapterIndex - 1}][]" required>
+                        <input type="text" class="form-control form-control-sm" id="module_name_${chapterIndex}_${moduleCounts[chapterIndex]}" name="chapters[${chapterIndex - 1}][modules][${moduleCounts[chapterIndex] - 1}][name]" required>
                     </div>
                     <div>
                         <label for="video_url_${chapterIndex}_${moduleCounts[chapterIndex]}" class="form-label">Video URL (Optional):</label>
-                        <input type="url" class="form-control form-control-sm" id="video_url_${chapterIndex}_${moduleCounts[chapterIndex]}" name="video_url[${chapterIndex - 1}][]">
+                        <input type="url" class="form-control form-control-sm" id="video_url_${chapterIndex}_${moduleCounts[chapterIndex]}" name="chapters[${chapterIndex - 1}][modules][${moduleCounts[chapterIndex] - 1}][video_url]">
                     </div>
                 </div>
                 <button type="button" class="btn btn-sm btn-danger" onclick="removeModule(this)">Remove</button>
@@ -132,33 +151,33 @@
         function removeModule(button) {
             const moduleDiv = button.parentNode;
             moduleDiv.remove();
+            // Optionally re-index module inputs if needed
         }
 
         // Initialize with one chapter
         addChapter();
 
-        // Initially hide the existing subject dropdown
-        const existingSubjectSelect = document.querySelector('select[name="subject_option"]');
-        if (existingSubjectSelect) {
-            existingSubjectSelect.style.display = 'none';
-        }
-
         // JavaScript to toggle visibility of the select based on the radio button
-        document.addEventListener('change', function(event) {
-            if (event.target.name === 'subject_option') {
-                const newSubjectInput = document.querySelector('input[name="new_subject_name"]');
-                const existingSubjectSelect = document.querySelector('select[name="subject_option"]');
-                if (document.getElementById('newSubject').checked) {
-                    newSubjectInput.style.display = 'block';
-                    existingSubjectSelect.style.display = 'none';
-                    newSubjectInput.focus(); // Set focus to the new subject input
-                } else if (document.getElementById('existingSubject').checked) {
-                    newSubjectInput.style.display = 'none';
-                    existingSubjectSelect.style.display = 'block';
-                    existingSubjectSelect.focus(); // Set focus to the existing subject select
-                }
-            }
-        });
+        const newSubjectRadio = document.getElementById('newSubjectRadio');
+        const existingSubjectRadio = document.getElementById('existingSubjectRadio');
+        const newSubjectInput = document.getElementById('newSubjectInput');
+        const existingSubjectSelect = document.getElementById('existingSubjectSelect');
+
+        if (existingSubjectRadio && newSubjectRadio && newSubjectInput && existingSubjectSelect) {
+            existingSubjectSelect.style.display = 'none'; // Initially hide
+
+            existingSubjectRadio.addEventListener('change', function() {
+                newSubjectInput.style.display = 'none';
+                existingSubjectSelect.style.display = 'block';
+                existingSubjectSelect.focus();
+            });
+
+            newSubjectRadio.addEventListener('change', function() {
+                newSubjectInput.style.display = 'block';
+                existingSubjectSelect.style.display = 'none';
+                newSubjectInput.focus();
+            });
+        }
     </script>
 </body>
 </html>
