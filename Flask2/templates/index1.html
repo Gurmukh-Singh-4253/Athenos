@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>index</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style1.css') }}">
+</head>
+<body>
+    <a href = {{ url_for('env_page') }}><button> ENVIRONMENT </button></a>
+    <a href = {{ url_for('geo_page') }}><button> GEOGRAPHY </button></a>
+    <a href = {{ url_for('hist_page') }}><button> HISTORY </button></a>
+
+</body>
+</html>

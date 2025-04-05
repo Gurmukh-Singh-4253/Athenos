@@ -1,0 +1,63 @@
+
+
+
+<!-- templates/history.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>History Quiz</title>
+  <script>
+    async function loadQuiz() {
+      const res = await fetch('/history/generate?n=5');
+      const questions = await res.json();
+      const container = document.getElementById('quiz');
+      container.innerHTML = '';
+
+      questions.forEach((q, i) => {
+        container.innerHTML += `
+          <div>
+            <p><strong>Q${i + 1}:</strong> ${q.Question}</p>
+            <textarea name="answer" rows="2" cols="80" data-question="${q.Question}"></textarea>
+          </div><hr>
+        `;
+      });
+    }
+
+    async function submitQuiz() {
+      const answers = Array.from(document.querySelectorAll('textarea')).map(t => ({
+        question: t.getAttribute('data-question'),
+        answer: t.value
+      }));
+
+      const res = await fetch('/history/evaluate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ answers })
+      });
+
+      const result = await res.json();
+      const out = document.getElementById('result');
+      out.innerHTML = `<h3>Grade: ${result.grade}</h3>
+                       <p>Total Score: ${result.total_score} / ${result.out_of}</p>
+                       <p><strong>${result.final_feedback}</strong></p>`;
+      result.details.forEach(r => {
+        out.innerHTML += `<div>
+          <p><strong>Q:</strong> ${r.question}</p>
+          <p><strong>Your Answer:</strong> ${r.your_answer}</p>
+          <p><strong>Correct Answer:</strong> ${r.correct_answer}</p>
+          <p><strong>Feedback:</strong> ${r.feedback}</p>
+          <hr>
+        </div>`;
+      });
+    }
+  </script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style1.css') }}">
+</head>
+<body onload="loadQuiz()">
+  <h1>History Quiz</h1>
+  <div id="quiz"></div>
+  <button onclick="submitQuiz()">Submit</button>
+  <div id="result"></div>
+</body>
+</html>

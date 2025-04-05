@@ -472,6 +472,13 @@ def subject_portal(subject_id):
 @app.route('/take_test/<int:module_id>', methods=['GET', 'POST'])
 @login_required
 def take_test(module_id):
+    if module_id == 2:
+        return redirect("http://127.0.0.1:5001/environment")
+    if module_id == 3:
+        return redirect("http://127.0.0.1:5001/geography")
+    if module_id == 4:
+        return redirect("http://127.0.0.1:5001/history")
+
     if current_user.user_type != 'student':
         flash('Access denied')
         return redirect(url_for('dashboard'))
