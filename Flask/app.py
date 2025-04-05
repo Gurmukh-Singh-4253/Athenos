@@ -8,7 +8,7 @@ import random
 import string
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key'
+app.config['SECRET_KEY'] = 'abc123'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////home/gurmukh/Developer/Athenos/Flask/database.db'
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
@@ -24,9 +24,7 @@ app.config['MAIL_DEFAULT_SENDER'] = 'vansh27102005@gmail.com'
 mail = Mail(app)
 
 # In-memory database (replace with a real database in production)
-users = []
 otp_store = {}
-pending_registrations = {}
 
 # Helper function to generate OTP
 def generate_otp():
@@ -100,26 +98,19 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form.get('email')
+        username = request.form.get('email')  # Assuming email is used as username
         password = request.form.get('password')
 
-        # Find user
-        user = next((user for user in users if user['email'] == email), None)
-        if not user:
+        # Find user in database (not the in-memory list)
+        user = User.query.get(username)
+        
+        if not user or not bcrypt.check_password_hash(user.password, password):
             flash('Invalid credentials', 'error')
             return redirect(url_for('login'))
 
-        # Check password
-        if not bcrypt.check_password_hash(user['password'], password):
-            flash('Invalid credentials', 'error')
-            return redirect(url_for('login'))
-
-        # Authentication successful - create session
-        session['user'] = {
-            'email': user['email'],
-            'user_type': user['user_type']
-        }
-
+        # Use Flask-Login to log in the user
+        login_user(user)
+        
         # Redirect to dashboard
         return redirect(url_for('dashboard'))
 
@@ -138,20 +129,13 @@ def register():
             flash('Passwords do not match', 'error')
             return redirect(url_for('register'))
 
-        # Check if user already exists
-        if any(user['email'] == email for user in users):
-            flash('User already exists', 'error')
+        # Check if user already exists in the database
+        if User.query.filter_by(username=email).first():
+            flash('User with this email already exists', 'error')
             return redirect(url_for('register'))
 
         # Hash password
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-
-        # Store pending registration
-        pending_registrations[email] = {
-            'email': email,
-            'password': hashed_password,
-            'user_type': user_type
-        }
 
         # Generate OTP
         otp = generate_otp()
@@ -159,13 +143,16 @@ def register():
         # Store OTP with expiry (5 minutes)
         otp_store[email] = {
             'otp': otp,
-            'expiry': datetime.now() + timedelta(minutes=5)
+            'expiry': datetime.now() + timedelta(minutes=5),
+            'email': email,  # Store email for later use in verification
+            'hashed_password': hashed_password,
+            'user_type': user_type
         }
 
         # Send OTP via email
         try:
             msg = Message('Your Registration Verification Code',
-                          recipients=[email])
+                            recipients=[email])
             msg.html = f'''
                 <h1>Registration Verification Code</h1>
                 <p>Your 4-digit verification code is: <strong>{otp}</strong></p>
@@ -174,7 +161,7 @@ def register():
             mail.send(msg)
 
             # Save email in session for next step
-            session['pending_registration'] = {'email': email}
+            session['pending_verification_email'] = email
 
             # Redirect to verification page
             return redirect(url_for('verify_otp'))
@@ -185,41 +172,36 @@ def register():
 
     return render_template('register.html')
 
+
 @app.route('/verify-otp', methods=['GET', 'POST'])
 def verify_otp():
-    if 'pending_registration' not in session:
-        flash('No pending registration', 'error')
+    if 'pending_verification_email' not in session:
+        flash('No pending verification', 'error')
         return redirect(url_for('register'))
 
-    email = session['pending_registration']['email']
+    email = session['pending_verification_email']
+    stored_otp_data = otp_store.get(email)
 
     if request.method == 'POST':
         otp = request.form.get('otp')
 
-        stored_otp = otp_store.get(email)
+        if stored_otp_data and stored_otp_data['otp'] == otp and stored_otp_data['expiry'] > datetime.now():
+            # OTP is valid and not expired, create user in the database
+            new_user = User(username=stored_otp_data['email'],
+                            password=stored_otp_data['hashed_password'],
+                            user_type=stored_otp_data['user_type'])
+            db.session.add(new_user)
+            db.session.commit()
 
-        # Check if OTP exists and is valid
-        if not stored_otp or stored_otp['otp'] != otp:
-            flash('Invalid verification code', 'error')
+            flash('Registration successful! Please login.', 'success')
+            # Clean up OTP store and session
+            if email in otp_store:
+                del otp_store[email]
+            session.pop('pending_verification_email', None)
+            return redirect(url_for('login'))
+        else:
+            flash('Invalid or expired verification code', 'error')
             return redirect(url_for('verify_otp'))
-
-        # Check if OTP has expired
-        if stored_otp['expiry'] < datetime.now():
-            del otp_store[email]
-            flash('Verification code has expired', 'error')
-            return redirect(url_for('register'))
-
-        # Registration successful - add user from pending registrations
-        new_user = pending_registrations[email]
-        users.append(new_user)
-
-        # Clean up
-        del pending_registrations[email]
-        del otp_store[email]
-        session.pop('pending_registration', None)
-
-        flash('Registration successful! Please login.', 'success')
-        return redirect(url_for('login'))
 
     return render_template('verify_otp.html', email=email)
 
