@@ -366,9 +366,20 @@ def create_course():
 
     if request.method == 'POST':
         subject_option = request.form.get('subject_option')
+        print(f"Subject Option Received: '{subject_option}'") # Debug print
         subject = None
 
-        if subject_option == 'new':
+        if subject_option and subject_option != 'new':
+            try:
+                subject_id = int(subject_option)
+                subject = Subject.query.get(subject_id)
+                if not subject:
+                    flash('Invalid subject selected.')
+                    return render_template('create_course.html', subjects=subjects)
+            except ValueError:
+                flash('Invalid subject ID format.')
+                return render_template('create_course.html', subjects=subjects)
+        elif subject_option == 'new':
             new_subject_name = request.form.get('new_subject_name')
             if new_subject_name:
                 if Subject.query.filter_by(subject_name=new_subject_name).first():
@@ -382,11 +393,8 @@ def create_course():
                 flash('Please enter a name for the new subject.')
                 return render_template('create_course.html', subjects=subjects)
         else:
-            subject_id = int(subject_option)
-            subject = Subject.query.get(subject_id)
-            if not subject:
-                flash('Invalid subject selected.')
-                return render_template('create_course.html', subjects=subjects)
+            flash('Please select an existing subject or create a new one.')
+            return render_template('create_course.html', subjects=subjects)
 
         if subject:
             chapter_names = request.form.getlist('chapter_name[]')
@@ -397,13 +405,11 @@ def create_course():
                 if chapter_name:
                     chapter = Chapter(subject_id=subject.subject_id, chapter_name=chapter_name)
                     db.session.add(chapter)
-                    db.session.commit()  # Commit chapter to get its ID
+                    db.session.commit()
 
                     if i < len(module_names_list):
                         module_names = module_names_list[i]
-                        video_urls = []
-                        if i < len(video_urls_list):
-                            video_urls = video_urls_list[i]
+                        video_urls = video_urls_list[i] if i < len(video_urls_list) else []
 
                         for j, module_name in enumerate(module_names):
                             if module_name:
